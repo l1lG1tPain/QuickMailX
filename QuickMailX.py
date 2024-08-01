@@ -4,8 +4,8 @@ import requests
 import random
 import string
 from PIL import Image, ImageTk
-from bs4 import BeautifulSoup
 from datetime import datetime
+from plyer import notification
 
 class TempMailApp:
     def __init__(self, root):
@@ -31,7 +31,7 @@ class TempMailApp:
         self.set_background()
 
         # Метка для почты
-        self.email_label = ttk.Label(root, text="Временная почта:", font=("Helvetica", 12), background=self.light_bg)
+        self.email_label = ttk.Label(root, text="Временная почта:", font=("Roboto", 12), background=self.light_bg)
         self.email_label.pack(pady=5)
 
         # Верхняя рамка для метки почты и кнопок
@@ -42,8 +42,8 @@ class TempMailApp:
         self.buttons_frame = ttk.Frame(self.top_frame)
         self.buttons_frame.pack(pady=0)
 
-        self.generate_icon = ImageTk.PhotoImage(file="image/generate.png")  # Убедитесь, что иконка находится в текущей директории
-        self.check_icon = ImageTk.PhotoImage(file="image/check.png")  # Убедитесь, что иконка находится в текущей директории
+        self.generate_icon = ImageTk.PhotoImage(file="image/generate.png")
+        self.check_icon = ImageTk.PhotoImage(file="image/check.png")
 
         self.generate_button = ttk.Button(self.buttons_frame, text="Сгенерировать почту", image=self.generate_icon, compound="left", command=self.generate_email, style="TButtonLight.TButton")
         self.generate_button.pack(side="left", padx=[0, 15], pady=0)
@@ -59,25 +59,33 @@ class TempMailApp:
         self.domain_entry = ttk.Combobox(self.email_frame, textvariable=self.domain_var, values=["1secmail.com", "mailinator.com", "10minutemail.com"], state="readonly")
         self.domain_entry.pack(side="left", padx=5)
 
-        self.email_entry = tk.Entry(self.email_frame, width=30, font=("Helvetica", 12))
+        self.email_entry = tk.Entry(self.email_frame, width=30, font=("Roboto", 12))
         self.email_entry.pack(side="left")
 
-        self.copy_icon = ImageTk.PhotoImage(file="image/copy.png")  # Убедитесь, что иконка находится в текущей директории
+        self.copy_icon = ImageTk.PhotoImage(file="image/copy.png")
         self.copy_button = ttk.Button(self.email_frame, image=self.copy_icon, command=self.copy_email, style="TButtonLight.TButton")
         self.copy_button.pack(side="left", padx=5)
 
         # Текстовое поле для отображения сообщений
-        self.messages_text = tk.Text(root, height=20, width=50, font=("Helvetica", 12), bd=0, relief="flat")
-        self.messages_text.pack(pady=5)
+        self.messages_frame = ttk.Frame(root)
+        self.messages_frame.pack(pady=5)
+
+        self.messages_text = tk.Text(self.messages_frame, height=20, width=50, font=("Roboto", 12), bd=0, relief="flat")
+        self.messages_text.pack(side="left")
+
+        self.scrollbar = tk.Scrollbar(self.messages_frame, command=self.messages_text.yview)
+        self.scrollbar.pack(side="right", fill="y")
+
+        self.messages_text.config(yscrollcommand=self.scrollbar.set)
 
         # Переключатель темной темы
         self.theme_switch_frame = ttk.Frame(root)
         self.theme_switch_frame.pack(pady=5)
 
-        self.sun_icon = ImageTk.PhotoImage(file="image/sun.png")  # Убедитесь, что иконка находится в текущей директории
+        self.sun_icon = ImageTk.PhotoImage(file="image/sun.png")
         self.moon_icon = ImageTk.PhotoImage(file="image/moon.png")
         self.clear_icon = ImageTk.PhotoImage(file="image/clear.png")
-        self.settings_icon = ImageTk.PhotoImage(file="image/settings.png")  # Убедитесь, что иконка находится в текущей директории
+        self.settings_icon = ImageTk.PhotoImage(file="image/settings.png")
 
         self.theme_button = ttk.Button(self.theme_switch_frame, image=self.sun_icon, command=self.toggle_theme, style="TButtonLight.TButton")
         self.theme_button.pack(side="left", padx=(0, 5))
@@ -89,10 +97,10 @@ class TempMailApp:
         self.clear_history_button.pack(side="left", padx=(0, 5))
 
         # История сгенерированных почтовых адресов
-        self.history_label = ttk.Label(root, text="История почты:", font=("Helvetica", 12), background=self.light_bg)
+        self.history_label = ttk.Label(root, text="История почты:", font=("Roboto", 12), background=self.light_bg)
         self.history_label.pack(pady=5)
 
-        self.history_listbox = tk.Listbox(root, height=5, width=50, font=("Helvetica", 12), bd=0, relief="flat")
+        self.history_listbox = tk.Listbox(root, height=5, width=50, font=("Roboto", 12), bd=0, relief="flat")
         self.history_listbox.pack(pady=5)
 
         # Лоадер
@@ -104,7 +112,7 @@ class TempMailApp:
         self.email = ""
         self.history = []
 
-        # Запуск автообновления
+        # Автообновление
         self.update_interval = 30000  # 30 секунд
         self.update_email_check()
 
@@ -121,7 +129,7 @@ class TempMailApp:
         else:
             self.bg_label = tk.Label(self.root, image=self.bg_image)
             self.bg_label.place(x=0, y=0, relwidth=1, relheight=1)
-            self.bg_label.lower()  # Фон должен быть ниже остальных виджетов
+            self.bg_label.lower()
 
     def generate_email(self):
         domain = self.domain_var.get()
@@ -171,117 +179,99 @@ class TempMailApp:
                         subject = message['subject']
                         date = message['date']
                         self.messages_text.insert(tk.END, f"От: {from_address}\nТема: {subject}\nДата: {date}\n\n")
-
-                        # Получаем содержимое сообщения
-                        msg_response = requests.get(f"https://www.1secmail.com/api/v1/?action=readMessage&login={user}&domain={domain}&id={message_id}")
-                        if msg_response.status_code == 200:
-                            msg_data = msg_response.json()
-                            message_body = BeautifulSoup(msg_data['textBody'], 'html.parser').get_text()
-                            self.messages_text.insert(tk.END, f"Тело сообщения:\n{message_body}\n")
-                        else:
-                            self.messages_text.insert(tk.END, "Не удалось получить содержимое сообщения")
+                        self.root.update()
             else:
-                self.messages_text.insert(tk.END, "Ошибка при проверке почты")
-
+                self.messages_text.delete(1.0, tk.END)
+                self.messages_text.insert(tk.END, f"Ошибка: {response.status_code}")
         except Exception as e:
+            self.messages_text.delete(1.0, tk.END)
             self.messages_text.insert(tk.END, f"Ошибка: {str(e)}")
+        finally:
+            self.hide_loader()
+            self.root.update()
 
-        self.hide_loader()
+    def draw_loader(self):
+        self.loader_canvas.delete("all")
+        self.loader_canvas.create_oval(10, 10, 40, 40, outline="black", width=2)
+        self.loader_canvas.create_arc(10, 10, 40, 40, start=0, extent=90, outline="black", width=2, style="arc")
+        self.loader_canvas.create_arc(10, 10, 40, 40, start=90, extent=180, outline="black", width=2, style="arc")
+        self.loader_canvas.create_arc(10, 10, 40, 40, start=180, extent=270, outline="black", width=2, style="arc")
 
     def show_loader(self):
-        self.loader_canvas.pack(pady=5)
-        self.loader_canvas.update()
+        self.loader_canvas.pack()
 
     def hide_loader(self):
         self.loader_canvas.pack_forget()
-        self.loader_canvas.update()
-
-    def draw_loader(self):
-        self.loader_canvas.create_oval(10, 10, 40, 40, outline=self.dark_fg, width=3)
-        self.loader_canvas.create_line(25, 10, 25, 30, fill=self.dark_fg, width=3)
-        self.loader_canvas.create_line(10, 25, 40, 25, fill=self.dark_fg, width=3)
-
-    def toggle_theme(self):
-        if self.current_theme == "light":
-            self.current_theme = "dark"
-            self.theme_button.configure(image=self.moon_icon)
-            self.set_background()
-            self.apply_dark_theme()
-        else:
-            self.current_theme = "light"
-            self.theme_button.configure(image=self.sun_icon)
-            self.set_background()
-            self.apply_light_theme()
-
-    def apply_light_theme(self):
-        self.root.configure(bg=self.light_bg)
-        self.email_label.configure(background=self.light_bg, foreground=self.light_fg)
-        self.messages_text.configure(bg=self.light_bg, fg=self.light_fg)
-        self.history_label.configure(background=self.light_bg, foreground=self.light_fg)
-        self.history_listbox.configure(bg=self.light_bg, fg=self.light_fg)
-
-        self.generate_button.configure(style="TButtonLight.TButton")
-        self.check_mail_button.configure(style="TButtonLight.TButton")
-        self.copy_button.configure(style="TButtonLight.TButton")
-        self.settings_button.configure(style="TButtonLight.TButton")
-        self.clear_history_button.configure(style="TButtonLight.TButton")
-
-    def apply_dark_theme(self):
-        self.root.configure(bg=self.dark_bg)
-        self.email_label.configure(background=self.dark_bg, foreground=self.dark_fg)
-        self.messages_text.configure(bg=self.dark_bg, fg=self.dark_fg)
-        self.history_label.configure(background=self.dark_bg, foreground=self.dark_fg)
-        self.history_listbox.configure(bg=self.dark_bg, fg=self.dark_fg)
-
-        self.generate_button.configure(style="TButtonDark.TButton")
-        self.check_mail_button.configure(style="TButtonDark.TButton")
-        self.copy_button.configure(style="TButtonDark.TButton")
-        self.settings_button.configure(style="TButtonDark.TButton")
-        self.clear_history_button.configure(style="TButtonDark.TButton")
-
-    def open_settings(self):
-        settings_window = tk.Toplevel(self.root)
-        settings_window.title("Настройки")
-        settings_window.geometry("500x500")
-        settings_window.resizable(False, False)  # Убираем возможность изменения размера окна
-
-        # Установка фона окна настроек
-        if self.current_theme == "light":
-            settings_window.configure(bg=self.light_bg)
-        else:
-            settings_window.configure(bg=self.dark_bg)
-
-        settings_label = ttk.Label(settings_window, text="Настройки", font=("Helvetica", 16), background=settings_window.cget('background'))
-        settings_label.pack(pady=10)
-
-        # Функционал выбора фона
-        self.bg_label = ttk.Label(settings_window, text="Выберите изображение для фона (500x650):", background=settings_window.cget('background'))
-        self.bg_label.pack(pady=5)
-
-        self.bg_file_button = ttk.Button(settings_window, text="Выбрать файл", command=self.select_bg_image, style="TButtonLight.TButton")
-        self.bg_file_button.pack(pady=5)
-
-        self.version_label = ttk.Label(settings_window, text="Версия: 1.1.22", font=("Helvetica", 12), background=settings_window.cget('background'))
-        self.version_label.pack(pady=10, side="bottom")
-
-        self.info_label = ttk.Label(settings_window, text="QuickMailX — простое приложение для создания временных почтовых адресов и управления почтой. Легкий доступ к истории сообщений и настройкам.", font=("Helvetica", 12), background=settings_window.cget('background'))
-        self.info_label.pack(pady=5, side="bottom")
-
-    def select_bg_image(self):
-        file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg")])
-        if file_path:
-            self.set_background()
-
-    def clear_history(self):
-        self.history = []
-        self.history_listbox.delete(0, tk.END)
 
     def update_email_check(self):
         self.check_email()
         self.root.after(self.update_interval, self.update_email_check)
 
+    def toggle_theme(self):
+        if self.current_theme == "light":
+            self.current_theme = "dark"
+            self.theme_button.configure(image=self.moon_icon, style="TButtonDark.TButton")
+        else:
+            self.current_theme = "light"
+            self.theme_button.configure(image=self.sun_icon, style="TButtonLight.TButton")
+
+        self.set_background()
+
+    def open_settings(self):
+        settings_window = tk.Toplevel(self.root)
+        settings_window.title("Настройки")
+        settings_window.geometry("500x500")
+
+        # Интервал обновления
+        interval_label = ttk.Label(settings_window, text="Интервал обновления (мс):", font=("Roboto", 12))
+        interval_label.pack(pady=5)
+
+        self.interval_var = tk.StringVar(value=str(self.update_interval))
+        interval_entry = ttk.Entry(settings_window, textvariable=self.interval_var)
+        interval_entry.pack(pady=5)
+
+        save_button = ttk.Button(settings_window, text="Сохранить", command=self.save_settings)
+        save_button.pack(pady=10)
+
+        # Кнопка смены обоев
+        wallpaper_button = ttk.Button(settings_window, text="Сменить обои", command=self.change_wallpaper)
+        wallpaper_button.pack(pady=10)
+
+        # Описание продукта и версия
+        version_label = ttk.Label(settings_window, text="Версия 1.2.26\nОписание продукта", font=("Roboto", 12))
+        version_label.pack(pady=10)
+
+    def save_settings(self):
+        try:
+            interval = int(self.interval_var.get())
+            if interval > 0:
+                self.update_interval = interval
+                messagebox.showinfo("Настройки", "Настройки сохранены")
+            else:
+                messagebox.showwarning("Настройки", "Интервал должен быть положительным числом")
+        except ValueError:
+            messagebox.showwarning("Настройки", "Введите корректное значение интервала")
+
+    def change_wallpaper(self):
+        filepath = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg")])
+        if filepath:
+            self.bg_image = Image.open(filepath).resize((500, 650), Image.Resampling.LANCZOS)
+            self.bg_image = ImageTk.PhotoImage(self.bg_image)
+            self.bg_label.configure(image=self.bg_image)
+
+    def clear_history(self):
+        self.history = []
+        self.history_listbox.delete(0, tk.END)
+
     def get_current_time(self):
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def notify(self, title, message):
+        notification.notify(
+            title=title,
+            message=message,
+            timeout=10
+        )
 
 if __name__ == "__main__":
     root = tk.Tk()
